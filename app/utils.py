@@ -77,11 +77,13 @@ def send_messages_bulk(to, body, from_):
             from_=from_,
             body=body,
         )
-        st.success("Message sent to {}".format(to))
+        date_r = datetime.now().strftime("%b %d, %Y")
+        st.success(f"El mensaje se envió al número {to} de parte {from_} el dia {date_r} ")
         logger.info("Message sent to {}".format(to))
     except TwilioRestException as e:
         logger.error(e)
         st.error("Error sending message to {}: {}".format(to, e))
+        
 
 def send_messages_bulk_sms_with_media(to, body, from_, media_url):
     try:
@@ -91,7 +93,8 @@ def send_messages_bulk_sms_with_media(to, body, from_, media_url):
             body=body,
             media_url=[media_url],
         )
-        st.success("Message sent to {}".format(to))
+        date_r = datetime.now().strftime("%b %d, %Y")
+        st.success(f"El mensaje se envió al número {to} de parte {from_} el dia {date_r} ")
         logger.info("Message sent to {}".format(to))
     except TwilioRestException as e:
         logger.error(e)

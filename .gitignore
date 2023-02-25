@@ -21,6 +21,7 @@ meth-tech-tools-key.pem
 .toml
 app/.streamlit/secrets.toml
 app/.streamlit/
+.streamlit/
 
 # C extensions
 *.so

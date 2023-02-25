@@ -1,28 +1,19 @@
 import hashlib
 import pymongo
-import streamlit as st
+#import streamlit as st
 import streamlit_authenticator as stauth
 import datetime
+from decouple import config
 
-st.set_page_config(
-    page_title="Mech Tech Tools",
-    page_icon="🧊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://www.extremelycoolapp.com/help',
-        'Report a bug': 'mailto:javier@datanaly.st',
-        'About': "Mech Tech Tools - Collection of tools built for the Mech Tech community."
-    }
-)
-
-@st.experimental_singleton
+#@st.experimental_singleton
 def init_connection():
-    return pymongo.MongoClient(**st.secrets["db_users"])
+    #return pymongo.MongoClient(**st.secrets["db_users"])
+    mongoDB = pymongo.MongoClient(config('MONGO_URI'))
+    return mongoDB
 
 client = init_connection()
 
-def insert_user(username, name, password, hashed_password, date_r, is_manager, is_superuser, is_staff, is_active, phone_number_assigned, location) :
+def insert_user(username, name, password, hashed_password, date_r, is_manager, is_superuser, is_staff, is_active, phone_number_assigned, location):
     db = client["db_users"]
     collection = db["mech_tech_users"]
     bracketPass = [password]
@@ -31,13 +22,12 @@ def insert_user(username, name, password, hashed_password, date_r, is_manager, i
     removeopenbrack=strPass.replace("[", "")
     removeclosebrack=removeopenbrack.replace("]", "")
     final=removeclosebrack.replace("'","")
-    
     date_r = datetime.datetime.now()
     collection.insert_one(
         {
             "username": username,
             'name': name,
-            "password": password,
+            "string_password": password,
             "hash_password": final,
             "date_registered": date_r,
             "is_manager": is_manager,
@@ -49,6 +39,18 @@ def insert_user(username, name, password, hashed_password, date_r, is_manager, i
         }
     )
     return f"User added successfully {username}, {final}"
+
+def update_password(username, password, hashed_password):
+    db = client["db_users"]
+    collection = db["mech_tech_users"]
+    bracketPass = [password]
+    hashed_password= stauth.Hasher(bracketPass).generate()
+    strPass=str(hashed_password)
+    removeopenbrack=strPass.replace("[", "")
+    removeclosebrack=removeopenbrack.replace("]", "")
+    final=removeclosebrack.replace("'","")
+    collection.update_one({"username": username}, {"$set": {"hash_password": final, "string_password": password}})
+    return f"Password updated successfully {username}, {final}"
 
 def delete_user(username):
     db = client["db_users"]
@@ -83,6 +85,28 @@ def insert_likes(username, text, likes, date_r):
     )
     return f"Likes added successfully {username}, {likes}"
 
+def insert_feedback(username, text, date_r, rating):
+    db = client["db_users"]
+    collection = db["mech_tech_feedback"]
+    collection.insert_one(
+        {
+            "username": username,
+            "text": text,
+            "date_feedback": date_r,
+            'rating': rating,
+        }
+    )
+    return f"Feedback added successfully {username}, {text}"
 
-#insert_user("admin", "admin", "password", '$2b$12$rG1e2XkT1UcRRbFki5jzR.fpQiNoBETG1BSsXQZVTj/yijbzX1hgm', datetime.datetime.now(), False, True, False, True, '')
-
+def average_ratings():
+    db = client["db_users"]
+    collection = db["mech_tech_feedback"]
+    x = collection.aggregate([
+        {
+            "$group": {
+                "_id": None,
+                "avg_rating": { "$avg": "$rating" }
+            }
+        }
+    ])
+    return list(x)[0]['avg_rating']

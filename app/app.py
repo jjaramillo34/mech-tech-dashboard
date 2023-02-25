@@ -1,10 +1,11 @@
 import random
 import time
 import openai
-import requests
 import re
 import base64
 import toml
+import numpy as np
+import streamlit_authenticator as stauth  # pip install streamlit-authenticator
 from urllib import request
 from datetime import datetime
 import streamlit as st
@@ -17,7 +18,7 @@ from streamlit_text_rating.st_text_rater import st_text_rater
 from PIL import Image
 from bs4 import BeautifulSoup
 from utils import fetch_calls, send_messages_bulk, get_all_numbers, fetch_sms, send_messages_bulk_sms_with_media
-from auth import fetch_all_users, insert_likes, insert_user
+from auth import fetch_all_users, insert_likes, insert_user, insert_feedback, update_password, delete_user, average_ratings
 from streamlit_ace import st_ace
 from streamlit_quill import st_quill
 import streamlit_authenticator as stauth  # pip install streamlit-authenticator
@@ -26,44 +27,35 @@ from streamlit_chat import message
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 #from auth import login_page, signup_page
 
-#st.set_page_config(page_title="Streamlit Option Menu", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
-# get all users from db
-users = fetch_all_users()
-
-usernames, names, passwords, managers, superusers, staffers, activeusers, phones = [], [], [], [], [], [], [], []
-
-for user in users:
-    usernames.append(user["username"])
-    names.append(user["name"])
-    passwords.append(user["hash_password"])
-    managers.append(user["is_manager"])
-    superusers.append(user["is_superuser"])
-    staffers.append(user["is_staff"])
-    activeusers.append(user["is_active"])
-    phones.append(user["phone_number_assigned"])
-
-cred = {"usernames":{}} # create empty dict
-
-for uname, name, pwd, manager, superuser, staff, activeuser, phone in zip(usernames, names, passwords, managers, superusers, staffers, activeusers, phones):
-    user_dict = {"name":name, "password":pwd, "is_manager": manager, "is_superuser": superuser, "is_staff": staff, "is_active": activeuser, "phone_number_assigned": phone}
-    #print(user_dcit)
-    cred["usernames"].update({uname:user_dict})
-    
-#st.write(cred)
-authenticator = stauth.Authenticate(cred, "sales_dashboard", "abcdef", cookie_expiry_days=30)
-
-name, authentication_status, username = authenticator.login('Login', 'main')
+st.set_page_config(
+    page_title="Mech-Tech Dashboard",
+    page_icon=":robot_face:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'mailto:javier@datanaly.st?subject=Necesito ayuda con el dashboard de Mech-Tech',
+        'Report a bug': 'mailto:javier@datanaly.st?subject=Necesito ayuda con el dashboard de Mech-Tech',
+        'About': '# Mechat-Tech Dashboard. Powered by Streamlit and MongoDB.',
+    }
+)
 
 # regex patterns for email and phone numbers (could be simpler if more basic matching is required)
 email_regex_pattern = r'(?:[a-z0-9!#$%&''*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&''*+/=?^_`{|}~-]+)*|\"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])'
 phone_number_regex_pattern = r'(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?'
+logo = "https://www.mtifl.com/wp-content/uploads/2015/06/logo.png"
 
-@st.cache
+def row_style(row):
+    if row.verified != 0:
+        return pd.Series('background-color: #D4EDDA; opacity: 0.50' , row.index)
+    else:
+        return pd.Series('background-color: #F8D7DA; opacity: 0.50', row.index)
+
+@st.cache_data
 def convert_df(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
     return df.to_csv().encode('utf-8')
 
-@st.cache
+@st.cache_data
 def convert_to_excel(df):
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -126,7 +118,7 @@ def show_pdf(file_path):
     
 def find_phone_number(text):
     ph_no = re.findall(r"\b\d{11}\b",text)
-    print(ph_no)
+    #print(ph_no)
     if len(ph_no) > 0:
         return True
     else:
@@ -156,17 +148,12 @@ def get_users_data():
         
             
 def home():
-    
-    display = "https://www.mtifl.com/wp-content/uploads/2015/06/logo.png"
     col1, col2, col3 = st.columns([1,6,1])
-
     with col1:
         st.write("")
-
     with col2:
         #st.image("https://i.imgflip.com/amucx.jpg")
-        st.image(display)
-
+        st.image(logo)
     with col3:
         st.write("")
     
@@ -282,7 +269,9 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
         st.date_input("Select Date Range", [sms_logs['Date Created'].min(), sms_logs['Date Created'].max()])
         
 def tools():
-    #st.write(cred)
+    placerholder_message = '\rTemplate {Saludos}, {Mensaje}\rHola, nos estamos comunicando del departamento de finanzas de Meth-Tech por lo que le pedimos que nos llame al 1-800-555-5555 para hablar sobre su cuenta.'
+    t = '''\rJavier, 13472399026 \rMarlene, 13472399026 \rDomenica, 13472399026'''
+
     menu_options = ['Bulk SMS', 'Bulk Email', 'Bulk Whatsapp', 'Bulk Telegram']
     menu_icons = ['phone', 'email', 'whatsapp', 'telegram']
     
@@ -292,15 +281,20 @@ def tools():
     
     if selected2 == "Bulk SMS":
         # media type options
-        media_type_options = {"image": "media", "video": "video", "audio": "audio", "document": "document"}
+        media_type_options = {"image": "media"}
         from_ = phone
         
+        #st.write(cred)
+        #test_phone = cred['usernames'][uname]['phone_number_assigned']
+        
         st.sidebar.info('Numero de origen: ' + phone)
+        #st.sidebar.info('Numero de origen: ' + test_phone)
+        #st.write(cred['usernames'][uname])
         type_of_input = st.sidebar.radio('Select the type of input', ['From Input Form', 'From CSV File'])
         st.sidebar.write("---")
         
-        df_sample_csv = pd.read_csv('files/cms_bulk.csv')
-        df_sample_excel = pd.read_excel('files/cms_bulk.xlsx')
+        df_sample_csv = pd.read_csv('app/files/cms_bulk.csv')
+        df_sample_excel = pd.read_excel('app/files/cms_bulk.xlsx')
         download_sample_csv = convert_df(df_sample_csv)
         download_sample_excel = convert_to_excel(df_sample_excel)
         
@@ -308,98 +302,44 @@ def tools():
         columns_name_allow = [x.lower() for x in ['Phone Number', 'CellPhone', 'Cell_Phone', 'Cell-Phone', 'Cell_Phone', 'Cell', 'Celular', 'Telefono', 'Phone']]
                 
         if media_allowed:
-            media_type = st.sidebar.selectbox('Allow media in message: ', ['image', 'video', 'audio'])
+            media_type = st.sidebar.selectbox('Allow media in message: ', ['image'])
             if type_of_input == 'From Input Form':
-                media_url = st.text_input(f"Enter the {media_type_options[media_type]} url:")
-                recipients = st.text_area("Enter the recipient phone numbers (one per line):", height=200)
-                recipients = recipients.strip().split("\n")
-
-                # Get the message to send
-                message = st.text_area("Por favor, ingrese el mensaje a enviar:", height=200)
+                with st.form(key='input_form_1', clear_on_submit=True):
+                    media_url = st.text_input(f"Ingrese la url de la {media_type_options[media_type]}:", placeholder='https://www.youtube.com/watch?v=9bZkp7q19f0')
+                    placerholder_message = '\rTemplate {Saludos}, {Mensaje}\rHola, nos estamos comunicando del departamento de finanzas de Meth-Tech por lo que le pedimos que nos llame al 1-800-555-5555 para hablar sobre su cuenta.'
+                    t = '''\rJavier, 13472399026\rMarlene, 13472399026\rDomenica, 13472399026'''
+                    recipients = st.text_area("Ingrese los numeros de telefono de los destinatarios (uno por linea):", placeholder=t, height=200, key='recipients')
+                    
+                    recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    
+                    # Get the message to send
+                    message = st.text_area("Enter the message to send:", placeholder=placerholder_message, key='message')
+                    
+                    submitted = st.form_submit_button("Enviar mensajes")
                 
-                if st.button("Send"):
-                    for recipient in recipients:
-                        time.sleep(2)
-                        send_messages_bulk_sms_with_media(recipient, message, from_, media_url)
-            
-            elif type_of_input == 'From CSV File':
-                st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(columns_name_allow))
-                cols = st.columns(2)
-                cols[0].download_button("Descargar archivo de muestra csv", download_sample_csv, 'sample.csv', 'text/csv')
-                cols[1].download_button("Descargar archivo de muestra excel", download_sample_excel, 'sample.xlsx')
-                file = st.file_uploader("Choose a CSV or XLSX file", type=["csv", "xlsx"])
-                if file is not None:
-                    try:
-                        df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
-                        df.columns = df.columns.str.lower()
-                        for col_name in columns_name_allow:
-                            if col_name in df.columns:
-                                df = df.rename(columns={col_name: 'phonenumber'})
+                    if submitted:
+                        for recipient in recipients:
+                            print(recipient)
+                            if message == '':
+                                st.error('Por favor, ingrese un mensaje')
+                                st.error('El mensaje no puede estar vacio')
                                 break
-                        columns = [col for col in df.columns]
-                        df['phonenumber'] = df['phonenumber'].astype(str)
-                        #st.write(columns)
-                        
-                        df['verified'] = df[columns].apply(lambda x: x.str.contains(phone_number_regex_pattern,regex=True)).any(axis=1)
-                        df['verified1'] = df[columns].apply(lambda x: x.str.contains(phone_number_regex_pattern,regex=True)).any(axis=1)
-                        
-                        if df['verified'].all():
-                            st.success('El archivo no tiene errores')
-                        else:
-                            st.error('Por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
-                        
-                        df['phonenumber'] = df['phonenumber'].astype(str)
-                        
-                        st.dataframe(df, use_container_width=True)
-                        
-                        mensaje = f"Hola {df['name'][0]}, {df['notas'][0]}"        
-                        recipients1 = [(df['phonenumber'][i], df['name'][i], df['notas'][i]) for i in range(len(df))]
-                        
-                        used_notas = st.checkbox(label='Utilice la columna de notas: ', value=False)
-                        
-                        media_url = st.text_input(f"Enter the {media_type_options[media_type]} url:")
-                        
-                        if used_notas == False:
-                            message = st.text_area("Enter the message to send:", placeholder=mensaje, key='message')
-                        else:
-                            message = st.text_area("Enter the message to send:", key='message', disabled=True)
-                        
-                        mensaje = message
-                        
-                        if st.button("Send", help="Enviar mensajes"):
-                            if used_notas:
-                                for i, recipient in enumerate(recipients1):
-                                    #print(recipient[i])
-                                    message = f"Hola {recipient[1]}, {recipient[2]}"
-                                    time.sleep(2)
-                                    send_messages_bulk(recipient[0], message, from_)
                             else:
-                                for i, recipient in enumerate(recipients1):
-                                    #print(recipient[i])
-                                    time.sleep(2)
-                                    send_messages_bulk(recipient[0], message, from_)
-                    except Exception as e:
-                        st.error(e)
-        
-        else:
-            if type_of_input == 'From Input Form':
-                recipients = st.text_area("Enter the recipient phone numbers (one per line):", height=200)
-                recipients = recipients.strip().split("\n")
-
-                # Get the message to send
-                message = st.text_area("Enter the message to send:")
-                
-                if st.button("Send"):
-                    for recipient in recipients:
-                        time.sleep(2)
-                        send_messages_bulk(recipient, message, from_)
+                                name = recipient[0]
+                                recipient = recipient[1]
+                                #print(name, recipient)
+                                #saludo = message.strip().split(',')[0]
+                                #m = message.strip().split(',')[1]
+                                #message_final = f'{saludo} {name}, {m}'
+                                time.sleep(2)
+                                send_messages_bulk_sms_with_media(recipient, message, from_, media_url)
             
             elif type_of_input == 'From CSV File':
                 st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(columns_name_allow))
                 cols = st.columns(2)
                 cols[0].download_button("Descargar archivo de muestra csv", download_sample_csv, 'sample.csv', 'text/csv')
                 cols[1].download_button("Descargar archivo de muestra excel", download_sample_excel, 'sample.xlsx')
-                file = st.file_uploader("Choose a CSV or XLSX file", type=["csv", "xlsx"])
+                file = st.file_uploader("Seleccione un archivo CSV o XLSX", type=["csv", "xlsx"])
                 if file is not None:
                     try:
                         df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
@@ -417,36 +357,134 @@ def tools():
                         if df['verified'].all():
                             st.success('El archivo no tiene errores')
                             no_errors = df[df['verified'] == True].index.tolist()
-                            gb = GridOptionsBuilder.from_dataframe(df)
-                            gb.configure_selection('multiple', pre_selected_rows=no_errors)
-                            response = AgGrid(
-                                df,
-                                editable=False,
-                                gridOptions=gb.build(),
-                                data_return_mode="filtered_and_sorted",
-                                update_mode="no_update",
-                                fit_columns_on_grid_load=True,
-                                theme='balham',
-                            )
+                            
+                            st.dataframe(df.style.apply(row_style, axis=1), use_container_width=True)
                         else:
-                            st.error('Por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
-                            rows_errors = df[df['verified'] == False].index.tolist()                        
-                            gb = GridOptionsBuilder.from_dataframe(df)
-                            gb.configure_selection('multiple', pre_selected_rows=rows_errors)
-                            response = AgGrid(
-                                df,
-                                editable=False,
-                                gridOptions=gb.build(),
-                                data_return_mode="filtered_and_sorted",
-                                update_mode="no_update",
-                                fit_columns_on_grid_load=True,
-                                theme='streamlit',
-                            )
+                            st.error('Error por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
+                            rows_errors = df[df['verified'] == False].index.tolist()
+                            #st.subheader('Filas con errores')
+                            st.dataframe(df[df['verified'] == False].style.apply(row_style, axis=1), use_container_width=True)                      
+                            
+                        df['phonenumber'] = df['phonenumber'].astype(str)
+                        
+                        mensaje = f"Hola {df['name'][0]}, {df['notas'][0]}"        
+                        recipients1 = [(df['phonenumber'][i], df['name'][i], df['notas'][i]) for i in range(len(df))]
+                        
+                        used_notas = st.checkbox(label='Utilice la columna de notas: ', value=False)
+                        with st.form(key='input_form_2', clear_on_submit=True):
+                            media_url = st.text_input(f"Ingrese la url de la {media_type_options[media_type]}:", placeholder=logo)
+                            
+                            if used_notas == False:
+                                message = st.text_area("Enter the message to send:", placeholder="{saludos}, {mensaje}", key='message')
+                            else:
+                                message = st.text_area("Enter the message to send:", placeholder="{saludos}", key='message')
+                            
+                            #submitted = st.form_submit_button("Enviar mensajes")
+                            submit_button = st.form_submit_button("Enviar mensajes")
+                            
+                            if submit_button:
+                                if used_notas:
+                                    for i, recipient in enumerate(recipients1):
+                                        if mensaje == '':
+                                            st.error('El mensaje no puede estar vacio')
+                                            st.error('Los otros mensajes no se enviaran correctamente')
+                                        else:
+                                            final_message = f"{message} {recipient[1]}, {recipient[2]}"
+                                            time.sleep(2)
+                                            send_messages_bulk_sms_with_media(recipient[0], final_message, from_, media_url)
+                                else:
+                                    for i, recipient in enumerate(recipients1):
+                                        if mensaje == '':
+                                            st.error('El mensaje no puede estar vacio')
+                                            st.error('Los otros mensajes no se enviaran correctamente')
+                                            break
+                                        else:
+                                            name = recipient[1]
+                                            saludo = message.strip().split(',')[0]
+                                            m = message.strip().split(',')[1]
+                                            message_final = f'{saludo} {name}, {m}'
+                                            time.sleep(2)
+                                            #send_messages_bulk(recipient[0], message_final, from_)
+                                            send_messages_bulk_sms_with_media(recipient[0], message_final, from_, media_url)
+                                            
+                    except Exception as e:
+                        st.error(e)
+        
+        else:
+            if type_of_input == 'From Input Form':
+                with st.form(key='my_form_input1', clear_on_submit=True):
+                    recipients = st.text_area("Ingrese los numeros de telefono de los destinatarios (uno por linea):", placeholder=t, height=200, key='recipients')
+                    recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    
+                    # Get the message to send
+                    message = st.text_area("Enter the message to send:", placeholder=placerholder_message, key='message')
+                    
+                    submitted = st.form_submit_button("Enviar mensajes")
+                
+                    if submitted:
+                        for recipient in recipients:
+                            print(recipient)
+                            if message == '':
+                                st.error('Por favor, ingrese un mensaje')
+                                st.error('El mensaje no puede estar vacio')
+                                break
+                            else:
+                                name = recipient[0]
+                                recipient = recipient[1]
+                                #print(name, recipient)
+                                saludo = message.strip().split(',')[0]
+                                m = message.strip().split(',')[1]
+                                message_final = f'{saludo} {name}, {m}'
+                                time.sleep(2)
+                                send_messages_bulk(recipient, message_final, from_)
+            
+            elif type_of_input == 'From CSV File':
+                st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(columns_name_allow))
+                cols = st.columns(2)
+                cols[0].download_button("Descargar archivo de muestra csv", download_sample_csv, 'sample.csv', 'text/csv')
+                cols[1].download_button("Descargar archivo de muestra excel", download_sample_excel, 'sample.xlsx')
+                
+                file = st.file_uploader("Seleccione un archivo CSV o XLSX", type=["csv", "xlsx"])
+                if file is not None:
+                    try:
+                        df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
+                        df.columns = df.columns.str.lower()
+                        for col_name in columns_name_allow:
+                            if col_name in df.columns:
+                                df = df.rename(columns={col_name: 'phonenumber'})
+                                break
+                        columns = [col for col in df.columns]
+                        df['phonenumber'] = df['phonenumber'].astype(str)
+                        
+                        #df['verified'] = df[columns].apply(lambda x: x.str.contains(phone_number_regex_pattern,regex=True)).any(axis=1)
+                        df['verified']=df['phonenumber'].apply(lambda x: find_phone_number(x))
+                        
+                        if df['verified'].all():
+                            st.success('El archivo no tiene errores')
+                            no_errors = df[df['verified'] == True].index.tolist()
+                            
+                            st.dataframe(df.style.apply(row_style, axis=1), use_container_width=True)
+                            
+                            #gb = GridOptionsBuilder.from_dataframe(df)
+                            #gb.configure_selection('multiple', pre_selected_rows=no_errors)
+                            #response = AgGrid(
+                            #    df,
+                            #    editable=False,
+                            #    gridOptions=gb.build(),
+                            #    data_return_mode="filtered_and_sorted",
+                            #    update_mode="no_update",
+                            #    fit_columns_on_grid_load=True,
+                            #    theme='balham',
+                            #)
+                        else:
+                            st.error('Error por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
+                            rows_errors = df[df['verified'] == False].index.tolist()
+                            #st.subheader('Filas con errores')
+                            st.dataframe(df[df['verified'] == False].style.apply(row_style, axis=1), use_container_width=True)                      
+                            
                         df['phonenumber'] = df['phonenumber'].astype(str)
                     
                         mensaje = f"Hola {df['name'][0]}, {df['notas'][0]}"
-                        mensaje_placeholder = "{greetings}, {name} {notas}".format(greetings='Buenos dias', name=df['name'][0], notas=df['notas'][0])
-                        st.write(mensaje_placeholder)
                         
                         recipients = df['phonenumber'].tolist()
                         
@@ -454,27 +492,38 @@ def tools():
                         
                         used_notas = st.checkbox(label='Utilice la columna de notas: ', value=False)
                         
-                        if used_notas == False:
-                            message = st.text_area("Enter the message to send:", placeholder=mensaje, key='message')
-                        else:
-                            message = st.text_area("Enter the message to send:", key='message', disabled=True)
-                        
-                        mensaje = message
-                        if st.button("Send", help="Enviar mensajes"):
-                            if used_notas:
-                                for i, recipient in enumerate(recipients1):
-                                    #print(recipient[i])
-                                    message = f"Hole {recipient[1]}, {recipient[2]}"
-                                    time.sleep(2)
-                                    send_messages_bulk(recipient[0], message, from_)
-                                    
+                        with st.form(key='my_form_input2', clear_on_submit=True):
+                            if used_notas == False:
+                                message = st.text_area("Enter the message to send:", placeholder="{Saludos} , {mensaje}", key='message')
                             else:
-                                for i, recipient in enumerate(recipients1):
-                                    if mensaje == '':
-                                        st.error('El mensaje no puede estar vacio')
-                                    else:
+                                message = st.text_area("Enter the message to send:", placeholder="{Saludos} - Buenas dias, Buenas Tardes, Hola, etc", key='message')
+                            
+                            #mensaje = message
+                            submit_button = st.form_submit_button("Enviar mensajes")
+                            
+                            if submit_button:
+                                if used_notas:
+                                    for i, recipient in enumerate(recipients1):
+                                        #print(recipient[i])
+                                        final_message = f"{message} {recipient[1]}, {recipient[2]}"
                                         time.sleep(2)
-                                        send_messages_bulk(recipient[0], message, from_)
+                                        send_messages_bulk(recipient[0], final_message, from_)
+                                        
+                                else:
+                                    for i, recipient in enumerate(recipients1):
+                                        if mensaje == '':
+                                            st.error('El mensaje no puede estar vacio')
+                                            st.error('Los otros mensajes no se enviaron correctamente')
+                                            break
+                                        else:
+                                            name = recipient[1]
+                                            saludo = message.strip().split(',')[0]
+                                            m = message.strip().split(',')[1]
+                                            message_final = f'{saludo} {name}, {m}'
+                                            time.sleep(2)
+                                            send_messages_bulk(recipient[0], message_final, from_)
+                                            #time.sleep(2)
+                                            #send_messages_bulk(recipient[0], message, from_)
                     except Exception as e:
                         st.error(e)
                         
@@ -572,7 +621,7 @@ def about():
                     """)
     col1, col2,col3= st.columns(3)
     with col1:
-        with open("pdf/login.pdf", "rb") as pdf_file:
+        with open("app/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.4',
                 data=PDFbyte,
@@ -587,11 +636,63 @@ def about():
         #st.write(response)
 
 if __name__ == "__main__":
+    users = fetch_all_users()
+
+    usernames, names, passwords, s_passwords, managers, superusers, staffers, activeusers, phones = [], [], [], [], [], [], [], [], []
+
+    for user in users:
+        #st.write(user)
+        usernames.append(user["username"])
+        names.append(user["name"])
+        passwords.append(user["hash_password"])
+        s_passwords.append(user["string_password"])
+        managers.append(user["is_manager"])
+        superusers.append(user["is_superuser"])
+        staffers.append(user["is_staff"])
+        activeusers.append(user["is_active"])
+        phones.append(user["phone_number_assigned"])
+
+    cred = {"usernames":{}} # create empty dict
+    
+    for uname, name, pwd, password, manager, superuser, staff, activeuser, phone in zip(usernames, names, passwords, s_passwords, managers, superusers, staffers, activeusers, phones):
+        user_dict = {"name":name, "password":pwd, 's_password': password ,"is_manager": manager, "is_superuser": superuser, "is_staff": staff, "is_active": activeuser, "phone_number_assigned": phone}
+        #print(user_dcit)
+        cred["usernames"].update({uname:user_dict})
+        
+    authenticator = stauth.Authenticate(cred, "sales_dashboard", "abcedfgh", cookie_expiry_days=0)
+
+    name, authentication_status, username = authenticator.login('Login', 'main')
+    
     if authentication_status == False:
         st.error("Usario o contraseña incorrectos")
 
     if authentication_status == None:
         st.warning("Por favor, ingrese su usuario y contraseña")
+        col1, col2, col3 = st.columns([3,2,3])
+        with col1:
+            st.write("")
+        with col2:
+            st.image(logo, width=400)
+        with col3:
+            st.write("")
+        hide_streamlit_style = """
+            <style>
+            footer {visibility: hidden;}
+            </style>
+            """
+        st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+        footer="""
+        <style> .footer { position: fixed; left: 0; bottom: 0; width: 100%; background-color: #f5f5f5; color: black; text-align: center; } </style> 
+        <div class='footer'>
+            <p>Desarrollado por <a href='https://www.linkedin.com/in/javier-jaramillo-7b1b4b1b3/' target='_blank'>Javier Jaramillo.</a>
+            Copyright © 2023 - Mech-Tech. All Rights Reserved.
+            </p>
+            <span>
+            <img src='http://www.mechtech.edu/wp-content/uploads/2014/11/Social-Thumb.jpg' alt='Mech-Tech Logo' style='width: 65px;'></a></span>
+            </div>
+        """
+            
+        st.markdown(footer, unsafe_allow_html=True)
         
     if authentication_status == True and cred['usernames'][username]['is_manager'] == True:
         #placeholder = st.empty()
@@ -626,39 +727,130 @@ if __name__ == "__main__":
         elif selected == "Ayuda":
             about()
             st.write('---')
-        display = "https://www.mtifl.com/wp-content/uploads/2015/06/logo.png"
-        st.sidebar.image(display, width=200)
         
-        st.sidebar.caption("Developed by Javier Jaramillo")
-        with st.sidebar.expander("Version 1.0.0.0"):
-            #st.write("Version 1.0.0")
-            for text in ["Is this text helpful?", "Do you like this text?"]:
-                response = st_text_rater(text=text)
-                st.write(f"response --> {response}")
+        st.sidebar.image(logo, width=200)
+        
+        with st.sidebar.expander("Contacto"):
+            with st.sidebar.form(key='columns_in_form', clear_on_submit=True):
+                rating = st.slider("Por favor califique la aplicación", min_value=1, max_value=5, value=3, 
+                            help='Arrastre el control deslizante para calificar la aplicación. Esta es una escala de calificación de 1 a 5 donde 5 es la calificación más alta')
+                feedback = st.text_area(label='Por favor deje su comentario aquí')
+                date_r = datetime.now()
+                submitted = st.form_submit_button('Enviar')
+                if submitted:
+                    st.markdown(f'<p style="color: #ff4b4b; font-size: 16px; font-family: "Black";">Gracias por su comentario</p>', unsafe_allow_html=True)
+                    st.markdown(rating)
+                    st.markdown('Your Feedback:')
+                    st.markdown(feedback)
+                    insert_feedback(uname, feedback, date_r, rating)
+                    
+            score_average = average_ratings()
+            if score_average == 5.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 4.0 and score_average < 5.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 3.0 and score_average < 4.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 2.0 and score_average < 3.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average < 2.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+        
+        st.sidebar.write('---')            
+        st.sidebar.caption("Programado pro Javier Jaramillo:")
     
     elif authentication_status == True and cred['usernames'][username]['is_staff'] == True:
+        #st.write(cred['usernames'][uname])
         authenticator.logout('Cerrar sesión', 'sidebar')
         st.sidebar.write(f'Bienvenido {name}')
-        menu_options = ['Inicio', 'Herramientas', 'Ayuda']
+        menu_options = ['Herramientas', 'Ayuda', 'Restablecer contraseña']
         menu_icons = ['house', 'tools', 'info']
         with st.sidebar:
             selected = option_menu("Menú principal", menu_options, 
                 icons=menu_icons, menu_icon="list", default_index=0)
-        if selected == "Inicio":
-            home()
-        elif selected == "Herramientas":
+        if selected == "Herramientas":
             tools()
         elif selected == "Ayuda":
             about()
-            st.write('---')
-        display = "https://www.mtifl.com/wp-content/uploads/2015/06/logo.png"
-        st.sidebar.image(display, width=200)
-        st.sidebar.caption("Programmed by Javier Jaramillo:")
-        with st.sidebar.expander("Version"):
-            st.write("Version 1.0.0")
-            for text in ["Is this text helpful?", "Do you like this text?"]:
-                response = st_text_rater(text=text)
-                st.write(f"response --> {response}")
+        elif selected == "Restablecer contraseña":
+            #st.write(cred['usernames'][uname])
+            if authentication_status:
+                with st.form(key='my_form', clear_on_submit=True):
+                    current_password = st.text_input('Contraseña actual', type='password')
+                    new_password = st.text_input('Nueva contraseña', type='password')
+                    repeat_password = st.text_input('Repetir contraseña', type='password')
+                    submit_button = st.form_submit_button(label='Restablecer contraseña')
+                    if submit_button:
+                        if current_password == cred['usernames'][uname]['s_password']:
+                            if len(new_password) > 0:
+                                if new_password == repeat_password:
+                                    update_password(uname, new_password, new_password)
+                                    st.success('Contraseña restablecida con éxito')
+                                    st.balloons()
+                                    update_password(uname, new_password, new_password)
+                                else:
+                                    st.error('Las contraseñas no coinciden')
+                            else:
+                                st.error('La contraseña no puede estar vacía')
+                        elif current_password != cred['usernames'][uname]['s_password']:
+                            st.error('Contraseña actual incorrecta. Inténtalo de nuevo')
+                        elif current_password == '':
+                            st.error('La contraseña no puede estar vacía')
+                    
+        #st.write('---')
+        
+        st.sidebar.image(logo, width=200)
+        with st.sidebar.expander("Contacto"):
+            with st.sidebar.form(key='columns_in_form', clear_on_submit=True):
+                rating = st.slider("Por favor califique la aplicación", min_value=1, max_value=5, value=3, 
+                            help='Arrastre el control deslizante para calificar la aplicación. Esta es una escala de calificación de 1 a 5 donde 5 es la calificación más alta')
+                feedback = st.text_area(label='Por favor deje su comentario aquí')
+                date_r = datetime.now()
+                submitted = st.form_submit_button('Enviar')
+                if submitted:
+                    st.markdown(f'<p style="color: #ff4b4b; font-size: 16px; font-family: "Black";">Gracias por su comentario</p>', unsafe_allow_html=True)
+                    st.markdown(rating)
+                    st.markdown('Your Feedback:')
+                    st.markdown(feedback)
+                    insert_feedback(uname, feedback, date_r, rating)
+                    
+            score_average = average_ratings()
+            if score_average == 5.0:
+                #st.sidebar.title('App Ratings')
+                st.sidebar.markdown(f'<p style="font-weight:bold;color:green;font-size:18px;border-radius:2%;">App Ratings</p>', unsafe_allow_html=True)
+                #st.sidebar.markdown('<p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+                st.sidebar.markdown(
+                    f'⭐⭐⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 4.0 and score_average < 5.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 3.0 and score_average < 4.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average >= 2.0 and score_average < 3.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+            elif score_average < 2.0:
+                st.sidebar.title('App Ratings')
+                st.sidebar.markdown(
+                    f'⭐ <p style="font-weight:bold;color:green;font-size:20px;border-radius:2%;">{round(score_average, 1)}</p>', unsafe_allow_html=True)
+        
+        st.sidebar.write('---')            
+        #st.sidebar.caption("Programado pro Javier Jaramillo:")
+        st.sidebar.caption("Desarrollado por Javier Jaramillo:")
     
     if authentication_status == True and cred['usernames'][username]['is_superuser'] == True:
         st.sidebar.image('https://www.mtifl.com/wp-content/uploads/2015/06/logo.png', width=200)
@@ -668,7 +860,6 @@ if __name__ == "__main__":
         select_box = st.sidebar.selectbox('Seleccione una opción', ['Crear usuario', 'Eliminar usuario', 'Editar usuario', 'Ver todos los usuarios'])
         
         phone_numbers = get_all_numbers()
-        
         users = fetch_all_users()
         
         doc_users = {}
@@ -697,7 +888,7 @@ if __name__ == "__main__":
         cols = st.columns(2)
         
         if select_box == 'Crear usuario':
-            with st.form(key='my_form'):
+            with st.form(key='my_form', clear_on_submit=True):
                 uname = st.text_input('Nombre de usuario', placeholder='Ingrese el nombre de usuario', max_chars=20, help='Ingrese el nombre de usuario')
                 name = st.text_input('Nombre - Apellido', placeholder='Ingrese el Nombre y Apellido del usuario', max_chars=40, help='Ingrese el nombre del usuario')
                 password = st.text_input('Contraseña', type='password', placeholder='Ingrese la contraseña del usuario', max_chars=20, help='Ingrese la contraseña del usuario')
