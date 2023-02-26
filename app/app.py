@@ -28,7 +28,8 @@ from streamlit_chat import message
 #from auth import login_page, signup_page
 import os
 
-path  = os.getcwd()
+path  = os.path.dirname(os.path.abspath(__file__))
+print(path)
 
 st.set_page_config(
     page_title="Mech-Tech Dashboard",
@@ -298,8 +299,8 @@ def tools():
         st.sidebar.write("---")
         
         #df_sample_csv = pd.read_csv('app/files/cms_bulk.csv')
-        df_sample_csv = pd.read_csv(path + '/app/files/cms_bulk.csv')
-        df_sample_excel = pd.read_excel(path + '/app/files/cms_bulk.xlsx')
+        df_sample_csv = pd.read_csv(path + '/files/cms_bulk.csv')
+        df_sample_excel = pd.read_excel(path + '/files/cms_bulk.xlsx')
         download_sample_csv = convert_df(df_sample_csv)
         download_sample_excel = convert_to_excel(df_sample_excel)
         
@@ -470,17 +471,6 @@ def tools():
                             
                             st.dataframe(df.style.apply(row_style, axis=1), use_container_width=True)
                             
-                            #gb = GridOptionsBuilder.from_dataframe(df)
-                            #gb.configure_selection('multiple', pre_selected_rows=no_errors)
-                            #response = AgGrid(
-                            #    df,
-                            #    editable=False,
-                            #    gridOptions=gb.build(),
-                            #    data_return_mode="filtered_and_sorted",
-                            #    update_mode="no_update",
-                            #    fit_columns_on_grid_load=True,
-                            #    theme='balham',
-                            #)
                         else:
                             st.error('Error por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
                             rows_errors = df[df['verified'] == False].index.tolist()
@@ -513,7 +503,6 @@ def tools():
                                         final_message = f"{message} {recipient[1]}, {recipient[2]}"
                                         time.sleep(2)
                                         send_messages_bulk(recipient[0], final_message, from_)
-                                        
                                 else:
                                     for i, recipient in enumerate(recipients1):
                                         if mensaje == '':
@@ -603,8 +592,7 @@ def about():
         parameters={"controls": 1, "autoplay": 0, "loop": 1, "muted": 1, "rel": 0, "modestbranding": 1, "playsinline": 1, "origin": "https://share.streamlit.io", "widgetid": 1}
         
         st_player("https://www.youtube.com/watch?v=beAVMof7C0k", height=500, controls=True, loop=True)
-        #st.video("videos/login.webm")
-        #st.image("videos/login.gif", use_column_width=True)
+
     with cols[1]:
         st.subheader("Vistas de inicio de sesión de usuario de Mech Tech")
         st.markdown("""
@@ -619,11 +607,11 @@ def about():
                     """)
     col1, col2,col3= st.columns(3)
     with col1:
-        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.4',
                 data=PDFbyte,
-                file_name="pdf/login.pdf",
+                file_name=path +"/pdf/login.pdf",
                 mime='application/octet-stream')
 
     for text in ["Te parecio util este tutorial?. De vistas de inicio de sesión de usuario de Mech Tech"]:
@@ -659,11 +647,11 @@ def about():
         
     col1, col2,col3= st.columns(3)
     with col1:
-        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.5',
                 data=PDFbyte,
-                file_name="pdf/user_tools.pdf",
+                file_name=path + "/pdf/user_tools.pdf",
                 mime='application/octet-stream')
     for text in ["Te parecio util este tutorial?. De herramientas del usuario de Mech-Tech"]:
         date_r = datetime.now()
@@ -698,11 +686,11 @@ def about():
         
     col1, col2,col3= st.columns(3)
     with col1:
-        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.6',
                 data=PDFbyte,
-                file_name="pdf/user_tools.pdf",
+                file_name=path + "/pdf/user_tools.pdf",
                 mime='application/octet-stream')
     for text in ["Te parecio util este tutorial?. De Ayuda y Soporte de usuario de Mech-Tech"]:
         date_r = datetime.now()
