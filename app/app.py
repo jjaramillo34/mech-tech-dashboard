@@ -26,6 +26,9 @@ from streamlit_player import st_player
 from streamlit_chat import message
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 #from auth import login_page, signup_page
+import os
+
+path  = os.getcwd()
 
 st.set_page_config(
     page_title="Mech-Tech Dashboard",
@@ -75,6 +78,7 @@ def st_display_pdf(pdf_file, height=None):
     st.markdown(pdf_display, unsafe_allow_html=True)
 
 primaryColor = toml.load(".streamlit/config.toml")['theme']['primaryColor']
+primaryColor = toml.load(path + "/.streamlit/config.toml")['theme']['primaryColor']
 s = f"""
 <style>
 div.stButton > button:first-child {{ border: 5px solid {primaryColor}; border-radius:20px 20px 20px 20px; }}
@@ -293,8 +297,9 @@ def tools():
         type_of_input = st.sidebar.radio('Select the type of input', ['From Input Form', 'From CSV File'])
         st.sidebar.write("---")
         
-        df_sample_csv = pd.read_csv('app/files/cms_bulk.csv')
-        df_sample_excel = pd.read_excel('app/files/cms_bulk.xlsx')
+        #df_sample_csv = pd.read_csv('app/files/cms_bulk.csv')
+        df_sample_csv = pd.read_cvs(path + '/app/files/cms_bulk.csv')
+        df_sample_excel = pd.read_excel(path + '/app/files/cms_bulk.xlsx')
         download_sample_csv = convert_df(df_sample_csv)
         download_sample_excel = convert_to_excel(df_sample_excel)
         
@@ -614,7 +619,7 @@ def about():
                     """)
     col1, col2,col3= st.columns(3)
     with col1:
-        with open("app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.4',
                 data=PDFbyte,
@@ -654,7 +659,7 @@ def about():
         
     col1, col2,col3= st.columns(3)
     with col1:
-        with open("app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.5',
                 data=PDFbyte,
@@ -693,7 +698,7 @@ def about():
         
     col1, col2,col3= st.columns(3)
     with col1:
-        with open("app/pdf/login.pdf", "rb") as pdf_file:
+        with open(path + "/app/pdf/login.pdf", "rb") as pdf_file:
             PDFbyte = pdf_file.read()
         st.download_button(label="Download PDF Tutorial", key='3.6',
                 data=PDFbyte,
