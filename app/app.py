@@ -671,7 +671,7 @@ def about():
     
     cols = st.columns((5.5, 4.5))
     with cols[0]:
-        st_player("https://www.youtube.com/watch?v=7Z8Z1Z1Z1Z1", height=500, controls=True, loop=True)
+        st_player("https://youtu.be/UF-EYxXAStk", height=500, controls=True, loop=True)
         
     with cols[1]:
         st.subheader("Ayuda y Soporte de usuario de Mech-Tech")
