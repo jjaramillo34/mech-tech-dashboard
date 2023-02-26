@@ -592,23 +592,16 @@ def chatbot():
         output = None
             
 def about():
-    cols = st.columns((6, 4))
+    cols = st.columns((5.5, 4.5))
     with cols[0]:
         #st.subheader("Login Page Admin Login View and User Login View")
         parameters={"controls": 1, "autoplay": 0, "loop": 1, "muted": 1, "rel": 0, "modestbranding": 1, "playsinline": 1, "origin": "https://share.streamlit.io", "widgetid": 1}
         
-        st_player("https://youtu.be/YgizIT3jRLk", height=500, controls=True, loop=True)
+        st_player("https://www.youtube.com/watch?v=beAVMof7C0k", height=500, controls=True, loop=True)
         #st.video("videos/login.webm")
         #st.image("videos/login.gif", use_column_width=True)
     with cols[1]:
-        #st.subheader("Admin Dashboard")
-        st.markdown(""" <style> .font {
-            font-size:22px ; font-family: 'Black'; color: #FFFFF;} 
-            </style>""", unsafe_allow_html=True)
-        st.markdown('<p class="font">Mech Tech User or Admin Login Views</p>', unsafe_allow_html=True)
-        st.markdown(""" <style> .font {
-            font-size:15px ; font-family: 'Black'; color: #FFFFF;}
-            </style>""", unsafe_allow_html=True)    
+        st.subheader("Vistas de inicio de sesión de usuario de Mech Tech")
         st.markdown("""
                     - En esta sección se puede ver el inicio de sesión de la página de administración y la página de inicio de sesión de usuario.
                     - En la página de inicio de sesión de usuario, el usuario puede iniciar sesión con su nombre de usuario y contraseña.
@@ -628,13 +621,107 @@ def about():
                 file_name="pdf/login.pdf",
                 mime='application/octet-stream')
 
-    for text in ["Te parecio util este tutorial?"]:
+    for text in ["Te parecio util este tutorial?. De vistas de inicio de sesión de usuario de Mech Tech"]:
         date_r = datetime.now()
         response = st_text_rater(text=text, key='likes1.4')
         if response is not None:
-            insert_likes(name ,text, response, date_r)
+            insert_likes(uname ,text, response, date_r)
         #st.write(response)
-
+        
+    st.write("---")
+        
+    cols = st.columns((4.5, 5.5))
+    parameters={"controls": 1, "autoplay": 0, "loop": 1, "muted": 1, "rel": 0, "modestbranding": 1, "playsinline": 1, "origin": "https://share.streamlit.io", "widgetid": 1}
+    with cols[1]:
+        st_player("https://www.youtube.com/watch?v=d8Q2MoIHsFE", height=500, controls=True, loop=True)
+        
+    with cols[0]:
+        st.subheader("Herramientas del usuario de Mech-Tech")
+        st.markdown("""
+                    - En esta sección se puede ver las herramientas del usuario.
+                    - Envia msm mensajes en tiempo real a los usuarios.
+                    - Puedes ver los mensajes que se han enviado.
+                    - Ingresa en el menú de la izquierda para ver las herramientas del usuario.
+                    - Ingresa en los destinatarios para enviar mensajes a los usuarios. Nombre, Celular cliquea en el botón enviar. Tus mensajes se enviarán a los usuarios.
+                    - Tambien puedes enviar mensajes con imagenes.
+                    - Puedes utilizar archivos excel, csv para enviar mensajes a los usuarios.
+                    - Solo tienes que cargar el archivo y llenar los campos de mensaje. Luego cliquea en el botón enviar.
+                    - Chequea si el archivo se ha cargado correctamente. Y si el archivo tiene errores, se mostrará un mensaje de error.
+                    - Si el archivo se ha cargado correctamente, se mostrará un mensaje de éxito.
+                    - Envie mensajes con imagenes a los usuarios. Solo tienes que cargar el archivo y llenar los campos de mensaje. Luego cliquea en el botón enviar. 
+                    """
+                    )
+        
+    col1, col2,col3= st.columns(3)
+    with col1:
+        with open("app/pdf/login.pdf", "rb") as pdf_file:
+            PDFbyte = pdf_file.read()
+        st.download_button(label="Download PDF Tutorial", key='3.5',
+                data=PDFbyte,
+                file_name="pdf/user_tools.pdf",
+                mime='application/octet-stream')
+    for text in ["Te parecio util este tutorial?. De herramientas del usuario de Mech-Tech"]:
+        date_r = datetime.now()
+        response = st_text_rater(text=text, key='likes1.5')
+        if response is not None:
+            insert_likes(uname, text, response, date_r)
+        #st.write(response)
+    
+    st.write("---")
+    
+    cols = st.columns((5.5, 4.5))
+    with cols[0]:
+        st_player("https://www.youtube.com/watch?v=7Z8Z1Z1Z1Z1", height=500, controls=True, loop=True)
+        
+    with cols[1]:
+        st.subheader("Ayuda y Soporte de usuario de Mech-Tech")
+        st.markdown("""
+                    - En esta sección se puede ver la ayuda del usuario. Como videos, pdf tutoriales, comentarios, contacto con el administrador y app ratings.
+                    - El usuario puede ver los tutoriales de las herramientas del usuario.
+                    - El usuario puede ver los tutoriales de la página de inicio de sesión.
+                    - El usuario puede ver los videos de las herramientas del usuario.
+                    - El usuario puede reestablecer su contraseña.
+                    - El usuario puede poner su comentario y el administrador puede ver los comentarios.
+                    - El usuario puede ponerse en contacto con el administrador via email.
+                    - El usuario puede ver los app ratings de la aplicación.
+                    - El usuario calificar los tutoriales de la aplicación.
+                    - El administrador puede ser contactado por el usuario via email. Y el administrador puede responder al usuario.
+                    - El administrador sera notificado por email cuando el usuario envie un comentario o necesite ayuda.
+                    - Si el usuario necesita ayuda, puede ponerse en contacto con el administrador via email.
+                    - Si necesitas mas ayuda no dudes en contactar al administrador. Envia un email a: [Javier Jaramillo](mailto:javier@datanaly.st?subject=[Mech-Tech]%20Ayuda%20y%20Soporte%20de%20usuario%20de%20Mech-Tech)
+                    """, unsafe_allow_html=True)
+        
+    col1, col2,col3= st.columns(3)
+    with col1:
+        with open("app/pdf/login.pdf", "rb") as pdf_file:
+            PDFbyte = pdf_file.read()
+        st.download_button(label="Download PDF Tutorial", key='3.6',
+                data=PDFbyte,
+                file_name="pdf/user_tools.pdf",
+                mime='application/octet-stream')
+    for text in ["Te parecio util este tutorial?. De Ayuda y Soporte de usuario de Mech-Tech"]:
+        date_r = datetime.now()
+        response = st_text_rater(text=text, key='likes1.6')
+        if response is not None:
+            insert_likes(uname, text, response, date_r)
+            
+    st.write("---")
+    
+    st.markdown('''<p align="center">
+    <a href="mailto:jjaramillo34@gmail.com" rel="nofollow">
+        <img alt="Gmail" src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white"/>
+    </a>
+    <a href="https://discord.gg/afDPjUUH" rel="nofollow">
+        <img alt="Gitlab" src="https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white"/>
+    </a>
+    <a href="https://twitter.com/jejaramilloc" rel="nofollow">
+        <img alt="Twitter" src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white"/>
+    </a>
+    <a href="https://www.linkedin.com/in/javierjaramillo1/" rel="nofollow">
+        <img alt="Linkedin" src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white"/>
+    </a>
+    </p>''', unsafe_allow_html=True)
+    
 if __name__ == "__main__":
     users = fetch_all_users()
 
