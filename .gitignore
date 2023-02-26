@@ -16,13 +16,6 @@ meth-tech-tools-key.pem
 
 .DS_STORE
 
-# streamlit
-# config
-.toml
-app/.streamlit/secrets.toml
-app/.streamlit/
-.streamlit/
-
 # C extensions
 *.so
 
