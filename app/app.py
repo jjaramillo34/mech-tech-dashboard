@@ -24,7 +24,7 @@ from streamlit_quill import st_quill
 import streamlit_authenticator as stauth  # pip install streamlit-authenticator
 from streamlit_player import st_player
 from streamlit_chat import message
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
+#from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 #from auth import login_page, signup_page
 import os
 
@@ -77,15 +77,15 @@ def st_display_pdf(pdf_file, height=None):
     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height={height} type="application/pdf"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
-primaryColor = toml.load(".streamlit/config.toml")['theme']['primaryColor']
-primaryColor = toml.load(path + "/.streamlit/config.toml")['theme']['primaryColor']
-s = f"""
-<style>
-div.stButton > button:first-child {{ border: 5px solid {primaryColor}; border-radius:20px 20px 20px 20px; }}
-<style>
-"""
-
-st.markdown(s, unsafe_allow_html=True)
+#primaryColor = toml.load(".streamlit/config.toml")['theme']['primaryColor']
+#primaryColor = toml.load(path + "/.streamlit/config.toml")['theme']['primaryColor']
+#s = f"""
+#<style>
+#div.stButton > button:first-child {{ border: 5px solid {primaryColor}; border-radius:20px 20px 20px 20px; }}
+#<style>
+#"""
+#
+#st.markdown(s, unsafe_allow_html=True)
 
 def generate_response(prompt):
     try:
@@ -298,7 +298,7 @@ def tools():
         st.sidebar.write("---")
         
         #df_sample_csv = pd.read_csv('app/files/cms_bulk.csv')
-        df_sample_csv = pd.read_cvs(path + '/app/files/cms_bulk.csv')
+        df_sample_csv = pd.read_csv(path + '/app/files/cms_bulk.csv')
         df_sample_excel = pd.read_excel(path + '/app/files/cms_bulk.xlsx')
         download_sample_csv = convert_df(df_sample_csv)
         download_sample_excel = convert_to_excel(df_sample_excel)
