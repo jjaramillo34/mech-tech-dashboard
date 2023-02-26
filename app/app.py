@@ -50,12 +50,12 @@ def row_style(row):
     else:
         return pd.Series('background-color: #F8D7DA; opacity: 0.50', row.index)
 
-@st.cache_data
+#@st.cache_data
 def convert_df(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
     return df.to_csv().encode('utf-8')
 
-@st.cache_data
+#@st.cache_data
 def convert_to_excel(df):
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
