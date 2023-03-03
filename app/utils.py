@@ -82,7 +82,8 @@ def send_messages_bulk(to, body, from_):
         logger.info("Message sent to {}".format(to))
     except TwilioRestException as e:
         logger.error(e)
-        st.error("Error sending message to {}: {}".format(to, e))
+        #st.error("Error sending message to {}: {}".format(to, e))
+        st.error("Se ha producido un error al enviar el mensaje al número: {}".format(to) + " Por favor, verifique que el número sea correcto")
         
 
 def send_messages_bulk_sms_with_media(to, body, from_, media_url):
@@ -98,7 +99,8 @@ def send_messages_bulk_sms_with_media(to, body, from_, media_url):
         logger.info("Message sent to {}".format(to))
     except TwilioRestException as e:
         logger.error(e)
-        st.error("Error sending message to {}: {}".format(to, e))
+        #st.error("Error sending message to {}: {}".format(to, e))
+        st.error("Se ha producido un error al enviar el mensaje al número: {}".format(to) + " Por favor, verifique que el número sea correcto")
         
 def send_messages_bulk_with_video(to, body, from_, media_url):
     try:
