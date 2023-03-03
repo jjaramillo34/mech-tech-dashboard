@@ -24,12 +24,13 @@ from streamlit_quill import st_quill
 import streamlit_authenticator as stauth  # pip install streamlit-authenticator
 from streamlit_player import st_player
 from streamlit_chat import message
+from twilio.base.exceptions import TwilioRestException
 #from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 #from auth import login_page, signup_page
 import os
 
 path  = os.path.dirname(os.path.abspath(__file__))
-print(path)
+#print(path)
 
 st.set_page_config(
     page_title="Mech-Tech Dashboard",
@@ -274,10 +275,10 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
         st.date_input("Select Date Range", [sms_logs['Date Created'].min(), sms_logs['Date Created'].max()])
         
 def tools():
-    placerholder_message = '\rTemplate {Saludos}, {Mensaje}\rHola, nos estamos comunicando del departamento de finanzas de Meth-Tech por lo que le pedimos que nos llame al 1-800-555-5555 para hablar sobre su cuenta.'
-    t = '''\rJavier, 13472399026 \rMarlene, 13472399026 \rDomenica, 13472399026'''
-
-    menu_options = ['Bulk SMS', 'Bulk Email', 'Bulk Whatsapp', 'Bulk Telegram']
+    placerholder_message = '\rTemplate {Saludos}, {Mensaje}\rHola, nos estamos comunicando del departamento de finanzas de Meth-Tech por lo que le pedimos que nos llame al 1-800-555-5555 para hablar sobre su cuenta.'.strip()
+    t = '''\r13472399026\r13472399026\r13472399026'''.strip()
+    
+    menu_options = ['Bulk SMS']
     menu_icons = ['phone', 'email', 'whatsapp', 'telegram']
     
     #st.sidebar.image(display, width=200)
@@ -311,12 +312,12 @@ def tools():
             media_type = st.sidebar.selectbox('Allow media in message: ', ['image'])
             if type_of_input == 'From Input Form':
                 with st.form(key='input_form_1', clear_on_submit=True):
-                    media_url = st.text_input(f"Ingrese la url de la {media_type_options[media_type]}:", placeholder='https://www.youtube.com/watch?v=9bZkp7q19f0')
-                    placerholder_message = '\rTemplate {Saludos}, {Mensaje}\rHola, nos estamos comunicando del departamento de finanzas de Meth-Tech por lo que le pedimos que nos llame al 1-800-555-5555 para hablar sobre su cuenta.'
-                    t = '''\rJavier, 13472399026\rMarlene, 13472399026\rDomenica, 13472399026'''
+                    media_url = st.text_input(f"Ingrese la url de la {media_type_options[media_type]}:", placeholder=logo)
+                    
                     recipients = st.text_area("Ingrese los numeros de telefono de los destinatarios (uno por linea):", placeholder=t, height=200, key='recipients')
                     
-                    recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    #recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    recipients = [r.strip() for r in recipients.strip().split("\n")]
                     
                     # Get the message to send
                     message = st.text_area("Enter the message to send:", placeholder=placerholder_message, key='message')
@@ -325,20 +326,24 @@ def tools():
                 
                     if submitted:
                         for recipient in recipients:
-                            print(recipient)
-                            if message == '':
-                                st.error('Por favor, ingrese un mensaje')
-                                st.error('El mensaje no puede estar vacio')
+                            if recipient == '' or message == '' or media_url == '':
+                                st.error('Por favor, ingrese los numeros y el mensaje')
+                                st.error('Por favor, ingrese la url de la imagen, numero de telefono o mensaje')
+                                #st.error('El numero de telefono o mensaje no puede estar vacio ')
+                                st.error("El numero de telefono, mensaje o url de la imagen no puede estar vacio")
                                 break
                             else:
-                                name = recipient[0]
-                                recipient = recipient[1]
-                                #print(name, recipient)
+                                #name = recipient[0]
+                                #recipient = recipient[1]
                                 #saludo = message.strip().split(',')[0]
                                 #m = message.strip().split(',')[1]
                                 #message_final = f'{saludo} {name}, {m}'
-                                time.sleep(2)
-                                send_messages_bulk_sms_with_media(recipient, message, from_, media_url)
+                                try:
+                                    time.sleep(2)
+                                    send_messages_bulk_sms_with_media(recipient, message, from_, media_url)
+                                except Exception as e:
+                                    st.error(e)
+                                    break
             
             elif type_of_input == 'From CSV File':
                 st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(columns_name_allow))
@@ -359,15 +364,16 @@ def tools():
                         
                         #df['verified'] = df[columns].apply(lambda x: x.str.contains(phone_number_regex_pattern,regex=True)).any(axis=1)
                         df['verified']=df['phonenumber'].apply(lambda x: find_phone_number(x))
-                        
+                        no_errors = df[df['verified'] == True].index.tolist()
+                        rows_errors = df[df['verified'] == False].index.tolist()
                         if df['verified'].all():
                             st.success('El archivo no tiene errores')
-                            no_errors = df[df['verified'] == True].index.tolist()
+                            #no_errors = df[df['verified'] == True].index.tolist()
                             
                             st.dataframe(df.style.apply(row_style, axis=1), use_container_width=True)
                         else:
                             st.error('Error por favor, chequee la fila: {}'.format(df[df['verified'] == False].index.tolist()) + ' y asegurese de que la columna de telefonos contenga solo numeros en la forma: 14141234567')
-                            rows_errors = df[df['verified'] == False].index.tolist()
+                            #rows_errors = df[df['verified'] == False].index.tolist()
                             #st.subheader('Filas con errores')
                             st.dataframe(df[df['verified'] == False].style.apply(row_style, axis=1), use_container_width=True)                      
                             
@@ -381,37 +387,45 @@ def tools():
                             media_url = st.text_input(f"Ingrese la url de la {media_type_options[media_type]}:", placeholder=logo)
                             
                             if used_notas == False:
-                                message = st.text_area("Enter the message to send:", placeholder="{saludos}, {mensaje}", key='message')
-                            else:
-                                message = st.text_area("Enter the message to send:", placeholder="{saludos}", key='message')
+                                message = st.text_area("Enter the message to send:", placeholder=placerholder_message, key='message')
+                            #else:
+                                #message = df['notas'][0]
+                                #message = st.text_area("Enter the message to send:", placeholder="{saludos}", key='message')
                             
                             #submitted = st.form_submit_button("Enviar mensajes")
                             submit_button = st.form_submit_button("Enviar mensajes")
                             
                             if submit_button:
-                                if used_notas:
-                                    for i, recipient in enumerate(recipients1):
-                                        if mensaje == '':
-                                            st.error('El mensaje no puede estar vacio')
-                                            st.error('Los otros mensajes no se enviaran correctamente')
-                                        else:
-                                            final_message = f"{message} {recipient[1]}, {recipient[2]}"
-                                            time.sleep(2)
-                                            send_messages_bulk_sms_with_media(recipient[0], final_message, from_, media_url)
-                                else:
-                                    for i, recipient in enumerate(recipients1):
-                                        if mensaje == '':
-                                            st.error('El mensaje no puede estar vacio')
-                                            st.error('Los otros mensajes no se enviaran correctamente')
-                                            break
-                                        else:
-                                            name = recipient[1]
-                                            saludo = message.strip().split(',')[0]
-                                            m = message.strip().split(',')[1]
-                                            message_final = f'{saludo} {name}, {m}'
-                                            time.sleep(2)
-                                            #send_messages_bulk(recipient[0], message_final, from_)
-                                            send_messages_bulk_sms_with_media(recipient[0], message_final, from_, media_url)
+                                if rows_errors:
+                                    st.error('Por favor, corrija los errores en el archivo. Antes de enviar los mensajes')
+                                    #break
+                                elif no_errors:
+                                    if used_notas:
+                                        for i, recipient in enumerate(recipients1):
+                                            if media_url == '':
+                                                #st.error('El mensaje no puede estar vacio')
+                                                st.error('Por favor, ingrese la url de la imagen, numero de telefono o mensaje')
+                                                #st.error('Los otros mensajes no se enviaran correctamente')
+                                                st.error("El numero de telefono, mensaje o url de la imagen no puede estar vacio")
+                                            else:
+                                                #final_message = f"{message} {recipient[1]}, {recipient[2]}"
+                                                message = recipient[2]
+                                                time.sleep(2)
+                                                send_messages_bulk_sms_with_media(recipient[0], message, from_, media_url)
+                                    else:
+                                        for i, recipient in enumerate(recipients1):
+                                            if mensaje == '':
+                                                st.error('El mensaje no puede estar vacio')
+                                                st.error('Los otros mensajes no se enviaran correctamente')
+                                                break
+                                            else:
+                                                #name = recipient[1]
+                                                saludo = message.strip().split(',')[0]
+                                                m = message.strip().split(',')[1]
+                                                message_final = f'{saludo}, {m}'
+                                                time.sleep(2)
+                                                #send_messages_bulk(recipient[0], message_final, from_)
+                                                send_messages_bulk_sms_with_media(recipient[0], message_final, from_, media_url)
                                             
                     except Exception as e:
                         st.error(e)
@@ -419,8 +433,9 @@ def tools():
         else:
             if type_of_input == 'From Input Form':
                 with st.form(key='my_form_input1', clear_on_submit=True):
-                    recipients = st.text_area("Ingrese los numeros de telefono de los destinatarios (uno por linea):", placeholder=t, height=200, key='recipients')
-                    recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    recipients = st.text_area("Ingrese los numeros de telefono de los destinatarios (uno por linea):", placeholder=t.strip(), height=200, key='recipients')
+                    #recipients = [r.strip().split(',') for r in recipients.strip().split("\n")]
+                    recipients = [r.strip() for r in recipients.strip().split("\n")]
                     
                     # Get the message to send
                     message = st.text_area("Enter the message to send:", placeholder=placerholder_message, key='message')
@@ -429,20 +444,22 @@ def tools():
                 
                     if submitted:
                         for recipient in recipients:
-                            print(recipient)
-                            if message == '':
-                                st.error('Por favor, ingrese un mensaje')
-                                st.error('El mensaje no puede estar vacio')
+                            if recipient == '' or message == '':
+                                #st.error('Por favor, ingrese  numero de telefono')
+                                st.error('Por favor, ingrese los numeros y el mensaje')
+                                st.error('El numero de telefono o mensaje no puede estar vacio ')
                                 break
                             else:
-                                name = recipient[0]
-                                recipient = recipient[1]
+                                #name = recipient[0]
+                                #recipient = recipient[1]
                                 #print(name, recipient)
-                                saludo = message.strip().split(',')[0]
-                                m = message.strip().split(',')[1]
-                                message_final = f'{saludo} {name}, {m}'
+                                #saludo = message.strip().split(',')[0]
+                                #m = message.strip().split(',')[1]
+                                #message_final = f'{saludo} {name}, {m}'
                                 time.sleep(2)
-                                send_messages_bulk(recipient, message_final, from_)
+                                send_messages_bulk(recipient, message, from_)
+                                #finally:
+                                #st.success('Mensaje enviado correctamente')
             
             elif type_of_input == 'From CSV File':
                 st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(columns_name_allow))
@@ -490,8 +507,8 @@ def tools():
                         with st.form(key='my_form_input2', clear_on_submit=True):
                             if used_notas == False:
                                 message = st.text_area("Enter the message to send:", placeholder="{Saludos} , {mensaje}", key='message')
-                            else:
-                                message = st.text_area("Enter the message to send:", placeholder="{Saludos} - Buenas dias, Buenas Tardes, Hola, etc", key='message')
+                            #else:
+                                #message = st.text_area("Enter the message to send:", placeholder="{Saludos} - Buenas dias, Buenas Tardes, Hola, etc", key='message')
                             
                             #mensaje = message
                             submit_button = st.form_submit_button("Enviar mensajes")
@@ -500,20 +517,21 @@ def tools():
                                 if used_notas:
                                     for i, recipient in enumerate(recipients1):
                                         #print(recipient[i])
-                                        final_message = f"{message} {recipient[1]}, {recipient[2]}"
+                                        #final_message = f"{message} {recipient[1]}, {recipient[2]}"
+                                        final_message = recipient[2]
                                         time.sleep(2)
                                         send_messages_bulk(recipient[0], final_message, from_)
                                 else:
                                     for i, recipient in enumerate(recipients1):
-                                        if mensaje == '':
+                                        if message == '':
                                             st.error('El mensaje no puede estar vacio')
                                             st.error('Los otros mensajes no se enviaron correctamente')
                                             break
                                         else:
-                                            name = recipient[1]
+                                            #name = recipient[1]
                                             saludo = message.strip().split(',')[0]
                                             m = message.strip().split(',')[1]
-                                            message_final = f'{saludo} {name}, {m}'
+                                            message_final = f'{saludo}, {m}'
                                             time.sleep(2)
                                             send_messages_bulk(recipient[0], message_final, from_)
                                             #time.sleep(2)
@@ -748,16 +766,19 @@ if __name__ == "__main__":
 
     if authentication_status == None:
         st.warning("Por favor, ingrese su usuario y contraseña")
-        col1, col2, col3 = st.columns([3,2,3])
+        col1, col2, col3 = st.columns([3,1,3])
         with col1:
             st.write("")
         with col2:
-            st.image(logo, width=400)
+            pass
+            st.image("http://www.mechtech.edu/wp-content/uploads/2014/11/Social-Thumb.jpg", width=100)
+            #st.image(logo, width=400)
         with col3:
             st.write("")
         hide_streamlit_style = """
             <style>
             footer {visibility: hidden;}
+            #MainMenu {visibility: hidden;}
             </style>
             """
         st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
@@ -767,9 +788,7 @@ if __name__ == "__main__":
             <p>Desarrollado por <a href='https://www.linkedin.com/in/javier-jaramillo-7b1b4b1b3/' target='_blank'>Javier Jaramillo.</a>
             Copyright © 2023 - Mech-Tech. All Rights Reserved.
             </p>
-            <span>
-            <img src='http://www.mechtech.edu/wp-content/uploads/2014/11/Social-Thumb.jpg' alt='Mech-Tech Logo' style='width: 65px;'></a></span>
-            </div>
+        </div>
         """
             
         st.markdown(footer, unsafe_allow_html=True)
@@ -808,7 +827,7 @@ if __name__ == "__main__":
             about()
             st.write('---')
         
-        st.sidebar.image(logo, width=200)
+        #st.sidebar.image(logo, width=200)
         
         with st.sidebar.expander("Contacto"):
             with st.sidebar.form(key='columns_in_form', clear_on_submit=True):
@@ -853,7 +872,7 @@ if __name__ == "__main__":
         #st.write(cred['usernames'][uname])
         authenticator.logout('Cerrar sesión', 'sidebar')
         st.sidebar.write(f'Bienvenido {name}')
-        menu_options = ['Herramientas', 'Ayuda', 'Restablecer contraseña']
+        menu_options = ['Herramientas', 'Ayuda']
         menu_icons = ['house', 'tools', 'info']
         with st.sidebar:
             selected = option_menu("Menú principal", menu_options, 
@@ -889,7 +908,7 @@ if __name__ == "__main__":
                     
         #st.write('---')
         
-        st.sidebar.image(logo, width=200)
+        #st.sidebar.image(logo, width=200)
         with st.sidebar.expander("Contacto"):
             with st.sidebar.form(key='columns_in_form', clear_on_submit=True):
                 rating = st.slider("Por favor califique la aplicación", min_value=1, max_value=5, value=3, 
@@ -1035,3 +1054,11 @@ if __name__ == "__main__":
         #    except Exception as e:
         #        st.error(e)
     
+    hide_streamlit_style = """
+        <style>
+        footer {visibility: hidden;}
+        #MainMenu {visibility: hidden;}
+        </style>
+    """
+    
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
