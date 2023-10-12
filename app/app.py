@@ -4,11 +4,13 @@ import openai
 import re
 import base64
 import toml
+import json
 import numpy as np
 import streamlit_authenticator as stauth  # pip install streamlit-authenticator
 from urllib import request
 from datetime import datetime
 import streamlit as st
+from streamlit_echarts import st_echarts
 import pandas as pd
 from io import BytesIO
 from decouple import config
@@ -269,6 +271,7 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
             st.dataframe(df, use_container_width=True)
             st.write("Data Dimension: " +
                      str(df.shape[0]) + " rows and " + str(df.shape[1]) + " columns.")
+
     elif call_sms == 'SMS':
         numbers = get_all_numbers()
         from_number = st.sidebar.selectbox(
@@ -278,11 +281,13 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
 
         st.title('SMS Logs')
 
-        cols = st.columns(3)
+        cols = st.columns(4)
         cols[0].metric("Total SMS Sent", sms_logs.shape[0])
         cols[1].metric("Total SMS Delivered",
                        sms_logs[sms_logs['Status'] == 'delivered'].shape[0])
-        cols[2].metric("Total SMS Failed",
+        cols[2].metric("Total SMS Undelivered",
+                       sms_logs[sms_logs['Status'] == 'undelivered'].shape[0])
+        cols[3].metric("Total SMS Failed",
                        sms_logs[sms_logs['Status'] == 'failed'].shape[0])
 
         cols = st.columns(3)
@@ -290,9 +295,62 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
                        sms_logs[sms_logs['Status'] == 'queued'].shape[0])
         cols[1].metric("Total Spend", round(sms_logs['Price1'].sum(), 4))
         cols[2].metric("Total SMS Sent", round(sms_logs['Price1'].sum(), 4))
-        st.dataframe(sms_logs.head(10), use_container_width=True)
-        st.write("Data Dimension: " +
-                 str(sms_logs.shape[0]) + " rows and " + str(sms_logs.shape[1]) + " columns.")
+
+        # add a mm/dd/yyyyy column to the dataframe
+        sms_logs['Date'] = sms_logs['Date Created'].dt.strftime('%m/%d/%Y')
+        # sorte the dataframe by date DESC
+        sms_logs = sms_logs.sort_values(by='Date', ascending=False)
+
+        # count by status
+        sms_status = sms_logs.groupby(['Status']).agg(
+            {'Status': 'count'}).rename(columns={'Status': 'Count'}).reset_index()
+
+        data = [
+            {
+                "value": sms_status['Count'][0],
+                "name": sms_status['Status'][0]
+            } for i in range(len(sms_status))
+        ]
+
+        st.write(data)
+
+        json_data = json.dumps(data)
+        json_data = json_data.replace('\'', '\"')
+        st.write(json_data)
+
+        # create here some nice charts
+        options = {
+            "title": {"text": "Total SMS Sent", "subtext": "Status", "left": "center"},
+            "tooltip": {"trigger": "item"},
+            "legend": {
+                "orient": "vertical",
+                "left": "left",
+            },
+            "series": [
+                {
+                    "name": "SMS Sent",
+                    "type": "pie",
+                    "radius": "50%",
+                    "data": json.loads(json_data),
+                    "emphasis": {
+                        "itemStyle": {
+                            "shadowBlur": 10,
+                            "shadowOffsetX": 0,
+                            "shadowColor": "rgba(0, 0, 0, 0.5)",
+                        }
+                    },
+                }
+            ],
+        }
+        st.markdown("Select a legend, see the detail")
+        events = {
+            "legendselectchanged": "function(params) { return params.selected }",
+        }
+        s = st_echarts(
+            options=options, events=events, height="600px", key="render_pie_events"
+        )
+        if s is not None:
+            st.write(s)
 
         st.date_input("Select Date Range", [
                       sms_logs['Date Created'].min(), sms_logs['Date Created'].max()])
@@ -315,9 +373,18 @@ def tools():
         from_ = phone
 
         # st.write(cred)
-        # test_phone = cred['usernames'][uname]['phone_number_assigned']
+        # st.write(uname.lower())
 
-        st.sidebar.info('Numero de origen: ' + phone)
+        # set test phone number to none
+        # test_phone = None
+
+        # st.write(cred['usernames'][uname])
+        # phone_assigned = cred['usernames'][uname.lower()
+        #                                   ]['phone_number_assigned']
+
+        # st.sidebar.info('Numero de origen1:  ' + phone_assigned)
+
+        st.sidebar.info('Numero de origen: ' + from_)
         # st.sidebar.info('Numero de origen: ' + test_phone)
         # st.write(cred['usernames'][uname])
         type_of_input = st.sidebar.radio('Select the type of input', [
@@ -984,7 +1051,10 @@ if __name__ == "__main__":
             selected = option_menu("Menú principal", menu_options,
                                    icons=menu_icons, menu_icon="list", default_index=0)
         if selected == "Herramientas":
+            phone = cred['usernames'][username]['phone_number_assigned']
+            print(phone)
             tools()
+
         elif selected == "Ayuda":
             about()
         elif selected == "Restablecer contraseña":
