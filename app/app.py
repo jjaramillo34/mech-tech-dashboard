@@ -11,6 +11,10 @@ from urllib import request
 from datetime import datetime
 import streamlit as st
 from streamlit_echarts import st_echarts
+from streamlit_echarts import st_pyecharts
+from pyecharts.charts import Pie
+from pyecharts import options as opts
+from pyecharts.faker import Faker
 import pandas as pd
 from io import BytesIO
 from decouple import config
@@ -19,7 +23,7 @@ from streamlit_text_rating.st_text_rater import st_text_rater
 # from annotated_text import annotated_text
 from PIL import Image
 from bs4 import BeautifulSoup
-from utils import fetch_calls, send_messages_bulk, get_all_numbers, fetch_sms, send_messages_bulk_sms_with_media
+from utils import fetch_calls, send_messages_bulk, get_all_numbers, fetch_sms, send_messages_bulk_sms_with_media, check_status
 from auth import fetch_all_users, insert_likes, insert_user, insert_feedback, update_password, delete_user, average_ratings
 from streamlit_ace import st_ace
 from streamlit_quill import st_quill
@@ -58,14 +62,10 @@ def row_style(row):
     else:
         return pd.Series('background-color: #F8D7DA; opacity: 0.50', row.index)
 
-# @st.cache_data
-
 
 def convert_df(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
     return df.to_csv().encode('utf-8')
-
-# @st.cache_data
 
 
 def convert_to_excel(df):
@@ -95,6 +95,44 @@ def st_display_pdf(pdf_file, height=None):
 # """
 #
 # st.markdown(s, unsafe_allow_html=True)
+
+
+def create_chart(data):
+    options = {
+        "title": {"text": "Total SMS Sent", "subtext": "Status", "left": "center"},
+        "tooltip": {"trigger": "item"},
+        "legend": {"orient": "vertical", "left": "left", },
+        "series": [
+            {
+                "name": "SMS Sent",
+                "type": "pie",
+                "radius": "50%",
+                "data": data,
+                "emphasis": {
+                    "itemStyle": {
+                        "shadowBlur": 10,
+                        "shadowOffsetX": 0,
+                        "shadowColor": "rgba(0, 0, 0, 0.5)",
+                    }
+                },
+            }
+        ],
+    }
+
+    return st_echarts(
+        options=options, height="600px")
+
+
+def create_pie_chart(data):
+
+    c = (
+        Pie()
+        .add("", data)
+        .set_global_opts(title_opts=opts.TitleOpts(title="SMS Sent"))
+        .set_series_opts(label_opts=opts.LabelOpts(formatter="{b}: {c}"))
+        .set_colors(["green", "red", "yellow", "blue", "orange", "pink", "cyan"])
+    )
+    return st_pyecharts(c, height="400px", width="500px")
 
 
 def generate_response(prompt):
@@ -372,17 +410,9 @@ def tools():
         media_type_options = {"image": "media"}
         from_ = phone
 
-        # st.write(cred)
-        # st.write(uname.lower())
-
-        # set test phone number to none
-        # test_phone = None
-
-        # st.write(cred['usernames'][uname])
-        # phone_assigned = cred['usernames'][uname.lower()
-        #                                   ]['phone_number_assigned']
-
-        # st.sidebar.info('Numero de origen1:  ' + phone_assigned)
+        # add a counter for number of messages sent
+        count_messages = 0
+        sum_messages = 0.0
 
         st.sidebar.info('Numero de origen: ' + from_)
         # st.sidebar.info('Numero de origen: ' + test_phone)
@@ -419,7 +449,7 @@ def tools():
 
                     # Get the message to send
                     message = st.text_area(
-                        "Enter the message to send:", placeholder=placerholder_message, key='message')
+                        "Ingrese el mensaje a enviar:", placeholder=placerholder_message, key='message')
 
                     submitted = st.form_submit_button("Enviar mensajes")
 
@@ -435,18 +465,20 @@ def tools():
                                     "El numero de telefono, mensaje o url de la imagen no puede estar vacio")
                                 break
                             else:
-                                # name = recipient[0]
-                                # recipient = recipient[1]
-                                # saludo = message.strip().split(',')[0]
-                                # m = message.strip().split(',')[1]
-                                # message_final = f'{saludo} {name}, {m}'
                                 try:
                                     time.sleep(2)
                                     send_messages_bulk_sms_with_media(
                                         recipient, message, from_, media_url)
+                                    count_messages += 1
+                                    sum_messages += 1.0
                                 except Exception as e:
                                     st.error(e)
+                                    sum_messages += 1.0
                                     break
+                        st.success(
+                            f'{count_messages} mensajes enviados con exito')
+                        st.error(
+                            f'{sum_messages - count_messages} errores al enviar mensajes')
 
             elif type_of_input == 'From CSV File':
                 st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(
@@ -505,7 +537,7 @@ def tools():
 
                             if used_notas == False:
                                 message = st.text_area(
-                                    "Enter the message to send:", placeholder=placerholder_message, key='message')
+                                    "Ingrese el mensaje a enviar:", placeholder=mensaje, key='message')
                             # else:
                                 # message = df['notas'][0]
                                 # message = st.text_area("Enter the message to send:", placeholder="{saludos}", key='message')
@@ -569,30 +601,103 @@ def tools():
 
                     # Get the message to send
                     message = st.text_area(
-                        "Enter the message to send:", placeholder=placerholder_message, key='message')
+                        "Ingrese el mensaje a enviar:", placeholder=placerholder_message, key='message')
 
                     submitted = st.form_submit_button("Enviar mensajes")
 
                     if submitted:
+                        count_messages = 0
+                        delivered = 0
+                        undelivered = 0
+                        failed = 0
+                        queued = 0
+                        errors = 0
+
+                        errors_data = []
+                        doc = {}
+
                         for recipient in recipients:
                             if recipient == '' or message == '':
-                                # st.error('Por favor, ingrese  numero de telefono')
                                 st.error(
                                     'Por favor, ingrese los numeros y el mensaje')
                                 st.error(
                                     'El numero de telefono o mensaje no puede estar vacio ')
                                 break
                             else:
-                                # name = recipient[0]
-                                # recipient = recipient[1]
-                                # print(name, recipient)
-                                # saludo = message.strip().split(',')[0]
-                                # m = message.strip().split(',')[1]
-                                # message_final = f'{saludo} {name}, {m}'
-                                time.sleep(2)
-                                send_messages_bulk(recipient, message, from_)
-                                # finally:
-                                # st.success('Mensaje enviado correctamente')
+                                try:
+                                    response = send_messages_bulk(
+                                        recipient, message, from_)
+                                    # count_messages += 1
+                                    # added wait until the message is sent
+                                    print(response)
+                                    time.sleep(2)
+                                    if response == 'delivered' or response == 'sent':
+                                        delivered += 1
+                                    elif response == 'undelivered':
+                                        undelivered += 1
+                                        errors += 1
+                                    elif response == 'failed':
+                                        failed += 1
+                                        errors += 1
+                                    elif response == 'queued':
+                                        queued += 1
+
+                                    count_messages += 1
+
+                                except Exception as e:
+                                    doc = {
+                                        "Code": response[0],
+                                        "Message": response[1],
+                                    }
+
+                                    errors_data.append(doc)
+
+                                    errors += 1
+                                    # errors += 1
+                                    doc = {}
+                                    print(errors_data)
+                    # add a counter for number of messages sent
+
+                        # return a graph with the status of the messages
+                        cols = st.columns(2)
+
+                        with cols[0]:
+                            st.subheader('Messages Sent')
+                            messages_sent = pd.DataFrame({"Messages": ['Delivered', 'Undelivered', 'Failed', 'Queued', 'Errors'],
+                                                          "Count": [delivered, undelivered, failed, queued, errors]}).sort_values(by="Messages", ascending=True)
+
+                            st.dataframe(
+                                messages_sent, use_container_width=True)
+
+                        with cols[1]:
+                            data = [list(x) for x in zip(
+                                messages_sent['Messages'].tolist(), messages_sent['Count'].tolist())]
+
+                            # remmove from the data array if 0
+                            data = [x for x in data if x[1] != 0]
+
+                            create_pie_chart(data)
+
+                        with st.expander("Ver errores"):
+                            st.dataframe(pd.DataFrame(errors_data),
+                                         use_container_width=True)
+
+                    # with cols[0]:
+                    # st.subheader('Messages Sent')
+                    # messages_sent = pd.DataFrame({
+                    # "Messages": ['Total', 'Delivered', 'Undelivered', 'Failed', 'Queued', 'Errors'],
+                    # "Count": [count_messages, delivered, undelivered, failed, queued, errors]
+                    # })
+                    # st.dataframe(
+                    # messages_sent, use_container_width=True)
+                    # with cols[1]:
+                    # create a list comprehension with the status of the messages sent and the count of each array
+                    # data = [
+                    # list(x) for x in zip(messages_sent['Messages'].tolist(), messages_sent['Count'].tolist())]
+
+                    # create here some nice charts
+                    # create_chart(data)
+                    # create_pie_chart(data)
 
             elif type_of_input == 'From CSV File':
                 st.info('Por favor, asegurese de que el nombre de la columna contenga uno de los siguientes nombres: {}'.format(
@@ -654,7 +759,7 @@ def tools():
                         with st.form(key='my_form_input2', clear_on_submit=True):
                             if used_notas == False:
                                 message = st.text_area(
-                                    "Enter the message to send:", placeholder="{Saludos} , {mensaje}", key='message')
+                                    "Ingrese el mensaje a enviar:", placeholder=mensaje, key='message')
                             # else:
                                 # message = st.text_area("Enter the message to send:", placeholder="{Saludos} - Buenas dias, Buenas Tardes, Hola, etc", key='message')
 

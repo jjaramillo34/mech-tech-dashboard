@@ -1,4 +1,5 @@
 import os
+import time
 import pandas as pd
 from datetime import datetime
 from twilio.rest import Client
@@ -78,20 +79,42 @@ def fetch_sms(from_number):
 
 def send_messages_bulk(to, body, from_):
     try:
-        twilio_api.messages.create(
+        m = twilio_api.messages.create(
             to=to,
             from_=from_,
             body=body,
         )
+
+        # wait for the message to be sent and then return the status
+        time.sleep(2)
+
+        status = check_status(m.sid)
+
         date_r = datetime.now().strftime("%b %d, %Y")
-        st.success(
-            f"El mensaje se envió al número {to} de parte {from_} el dia {date_r} ")
+        if status == 'delivered' or status == 'sent':
+            st.success(
+                f"El mensaje se envió al número {to} de parte {from_} el dia {date_r} ")
+        elif status == 'undelivered':
+            st.error(
+                f"El mensaje no se pudo enviar al número {to} de parte {from_} el dia {date_r} ")
+        else:
+            st.warning(
+                f"El mensaje no se pudo enviar al número {to} de parte {from_} el dia {date_r} ")
+
         logger.info("Message sent to {}".format(to))
+        return status
     except TwilioRestException as e:
         logger.error(e)
         # st.error("Error sending message to {}: {}".format(to, e))
         st.error("Se ha producido un error al enviar el mensaje al número: {}".format(
             to) + " Por favor, verifique que el número sea correcto")
+
+        return e.code, e.msg
+
+
+def check_status(sid):
+    message = twilio_api.messages(sid).fetch()
+    return message.status
 
 
 def send_messages_bulk_sms_with_media(to, body, from_, media_url):
